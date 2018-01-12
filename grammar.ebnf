@@ -1,0 +1,9 @@
+# I'll write something to read this file. It should allow comments.
+# https://golang.org/ref/spec#Introduction
+# Read the page. You cannot understand this file on its own.
+letter        = unicode_letter | "_" .
+decimal_digit = "0" … "9" .
+octal_digit   = "0" … "7" .
+hex_digit     = "0" … "9" | "A" … "F" | "a" … "f" .
+
+

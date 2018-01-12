@@ -1,0 +1,6 @@
+__pycache__
+
+# pytest directory
+.cache/
+# jetbrains
+.idea/

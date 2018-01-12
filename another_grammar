@@ -1,0 +1,9 @@
+Wrap => Statement
+# No arguments in function for now.
+Function => func Identifier () { Statement }
+Statement => Function | Assignment | Return | Value | statement statement
+Return => return Statement
+Assignment => var Identifier = Value
+Value => Integer
+Identifier => [a-zA-Z_][a-zA-Z0-9_]*
+Integer => [1-9][0-9]*
