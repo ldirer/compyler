@@ -1,9 +1,26 @@
 Wrap => Statement
 # No arguments in function for now.
-Function => func Identifier () { Statement }
-Statement => Function | Assignment | Return | Value | statement statement
+Function => func Identifier \(\) \{ Statement \}
+# We cant have  `Statement Statement` as an alternative, that would make it a (left!!) recursive rule...
+Statement => Function | Declaration | Assignment | Return | BinOp | Expr
+# Im starting to see why we would need Expr on top of Statement.
+# BinOp for instance can have more than just a value as operand. But it cant have *anything*, like a return value...
+# Non-capturing groups FTW
+BinOp => Expr Operator BinOp | Expr Operator Expr
+
 Return => return Statement
-Assignment => var Identifier = Value
-Value => Integer
+Declaration => var Identifier = Expr | var Identifier
+# Assignment is only for previously declared value.
+Assignment => Identifier = Expr
+# Call needs to be before Identifier.
+# DAMN IT. I want to have BinOp here so we can have (1 + 2) > 0. But if I do, that's left-recursion.
+Expr => \( Expr \) | Call |  Identifier | Integer | String
+
+Call => Identifier \(\)
+# I'll probably need to handle escaping at some point
+String => " [^"]* "
 Identifier => [a-zA-Z_][a-zA-Z0-9_]*
 Integer => [1-9][0-9]*
+
+
+Operator => (?:==)|(?:<=)|(?:>=)|[-\+\*/<>]
