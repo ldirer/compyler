@@ -267,7 +267,6 @@ UnaryOperator = Noop
 Expr2 = Expr
 
 
-# TODO: I think if I used the REPEAT thing in the grammar I would not have to do this. Especially I can have consistent class names!
 def reduce_to_list(item, items=None):
     """Typically we will have three statements (lines of code basically) in a row, giving us:
     Block line1 [Block line2 [Block line3]]
@@ -328,14 +327,9 @@ def function_to_llvm(node: Function, module: ir.Module):
     return module
 
 
-def statement_to_llvm(node: Statement, builder: ir.IRBuilder, module: ir.Module):
-    # TODO: fix this along with the Statement node (mostly nonsense atm).
-    return to_llvm(node.content, builder, module)
-
-
 def return_to_llvm(node: Return, builder: ir.IRBuilder):
     """This function modifies builder inplace. It's a bit weird as it's not super consistent with other converters."""
-    builder.ret(to_llvm(node.value, builder))
+    return builder.ret(to_llvm(node.value, builder))
 
 
 def string_to_llvm(node):
@@ -393,10 +387,6 @@ def to_llvm(node: AstNode, builder: Union[ir.IRBuilder, None] = None, module: Un
         return integer_to_llvm(node)
     if isinstance(node, Return):
         return return_to_llvm(node, builder)
-    if isinstance(node, Expr):
-        return to_llvm(node.value, builder, module)
-    if isinstance(node, Statement):
-        return statement_to_llvm(node, builder, module)
     if isinstance(node, Char):
         return char_to_llvm(node, builder, module)
     if isinstance(node, BinOp):
