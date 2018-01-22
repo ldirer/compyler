@@ -1,6 +1,6 @@
 # raw strings mean we don't have to escape backslashes.
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 import pytest
 
 import tree as tree
@@ -39,16 +39,40 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
     if not text:
         return None
 
-    def parse_sequence(seq: List, text: str):
-        """We use this to parse things like 'var Identifier = Value' which is effectively a sequence.
+    def parse_sequence(seq: List, text: str, repeat=False) -> Tuple[List, str]:
+        """We use this to parse things like 'var Identifier = Expr' which is effectively a sequence.
         Note the sequence could have a single element, it's not a big deal and makes it more generic.
-
         """
         result = []
         remainder = text
-        for atom in seq:
-            tree, remainder = parse_atom(atom, remainder)
-            result.append(tree)
+
+        if repeat:
+            # Parse the sequence as many times as we can
+            while True:
+                try:
+                    tree_list, remainder = parse_sequence(seq, remainder, repeat=False)
+                except ParseError:
+                    break
+
+                result.extend(tree_list)
+            return result, remainder
+
+
+        i = 0
+        REPEAT_START = 'REPEAT_START'
+        REPEAT_END = 'REPEAT_END'
+        while i < len(seq):
+            atom = seq[i]
+            if atom == REPEAT_START:
+                # Get just the sequence to repeat
+                repeat_sequence = seq[(i + 1): seq.index(REPEAT_END, i)]
+                repeat_result, remainder = parse_sequence(repeat_sequence, remainder, repeat=True)
+                result.extend(repeat_result)
+                i = seq.index(REPEAT_END, i) + 1
+            else:
+                tree, remainder = parse_atom(atom, remainder)
+                result.append(tree)
+                i += 1
 
         return result, remainder
 
@@ -63,7 +87,7 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
             match = re.match(f'{whitespace}({atom})', text)
             if match is not None:
                 # match.group(0) would be with the whitespaces
-                print(atom, '---', text)
+                # print(atom, '--', text, '--', match.group(1))
                 return match.group(1), text[match.end():]
             else:
                 raise ParseError()
@@ -76,7 +100,7 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
                 except ParseError:
                     continue
 
-                print(atom, '---', text)
+                # print(atom, '--', text, '--', tree)
                 return [atom] + tree, remainder
             # no more alternatives, fail
             raise ParseError(f'No more alternatives, cannot parse {text}')
@@ -85,14 +109,70 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
 
 
 def to_ast(token_list) -> tree.AstNode:
-    # I think we could integrate this step and not generate a list of tuple-lists of tokens. Dunno if its a good idea.
 
     class_name, *args = token_list
     cls = getattr(tree, class_name)
-    # I dont know what im doing
-    setattr(tree, 'Expr', tree.Value)
+    # I dont know what im doing. HACK
+    setattr(tree, 'Expr', tree.Expr)
+    setattr(tree, 'Term', tree.Expr)
+
     # Some elements are lists: these still need parsing.
-    ast_args = [to_ast(arg) if isinstance(arg, list) else arg for arg in args
-                if not (isinstance(arg, str) and arg in cls.syntax_strings)]
+    ast_args = [[arg] if not isinstance(arg, list) else to_ast(arg)
+                for arg in args if not (isinstance(arg, str) and arg in cls.syntax_strings)]
+
+    # This is for specific tricks where we want to modify the structure of the ast (move a child node up for instance)
+    # We just flatten here.
+    ast_args = [a for arg_list in ast_args for a in arg_list]
+
+    nodes = parse_ast_args(cls, ast_args)
+    if cls == tree.Wrap:
+        return nodes[0]
+
+    return nodes
+
+
+def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
+
+    if cls == tree.Declaration and len(ast_args) >= 3:
+        # We deal with chained declarations here (`int a = b = 1;`). We want two separate variable declarations.
+        var_type, identifier, expr = ast_args
+        if isinstance(expr, tree.Assignment):
+            # We should raise an error somehow if there's no previous declaration of the variable here.
+            # A good solution would maintain a mapping to the original source code so we can show where the error is.
+            # We want to move the assignment node one up so it is **sibling** to this declaration node.
+            # Then the declaration should be made with the value of the assigned variable.
+            ast_args[2] = tree.Identifier(expr.identifier.name)
+            return [expr, *parse_ast_args(cls, ast_args)]
+
+    if cls == tree.Function:
+        # Sometimes we don't have function arguments. I don't know how to handle it but here, rearranging args order.
+        assert len(ast_args) in {3, 4}
+        if len(ast_args) == 4:
+            # Swap function args and body so it works with our class' constructor default args.
+            ast_args[2], ast_args[3] = ast_args[3], ast_args[2]
+
+    if cls == tree.Expr and any(op in ast_args for op in tree.BinOp.OPERATORS):
+        # We want to parse 4 / 3 * 2 with left-associativity. (it should output 2)
+        # It means we need to parse the multiplication first
+        *left_hand_side, op, right_hand_side = ast_args
+        assert op in tree.BinOp.OPERATORS, "Operator should be in second place in the token list"
+
+        if len(left_hand_side) > 1:
+            # We need to parse something like 1 + 2 + 3 + 4
+            # When making the recursive call we need to use [0] to avoid creatng an additional list.
+            left_hand_side = parse_ast_args(cls, left_hand_side)[0]
+        else:
+            # The left hand side is a single expression, it was already parsed into an ast.
+            left_hand_side = left_hand_side[0]
+
+        return [tree.BinOp(left_hand_side, op, right_hand_side)]
+
+    # We 'unnest' the structure - these classes are abstract so we are rly interested in what they contain.
+    if cls == tree.Expr:
+        assert len(ast_args) == 1
+        return ast_args
+    if cls == tree.Statement:
+        return ast_args
+
     # Hack. Esp since some 'class_name' refer to functions.
-    return cls(*ast_args)
+    return [cls(*ast_args)]

@@ -12,6 +12,7 @@ with open('another_grammar', 'r') as f:
 @click.argument('source-file', type=click.File(), required=True)
 def compile(source_file):
     token_list, remainder = parse(g, source_file.read())
+    assert remainder == '', 'Failed to parse!'
     ast = to_ast(token_list)
     print(to_llvm(ast))
 
