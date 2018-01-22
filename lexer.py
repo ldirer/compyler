@@ -117,18 +117,10 @@ def to_ast(token_list) -> tree.AstNode:
     setattr(tree, 'Term', tree.Expr)
 
     # Some elements are lists: these still need parsing.
-    ast_args = [[arg] if not isinstance(arg, list) else to_ast(arg)
+    ast_args = [arg if not isinstance(arg, list) else to_ast(arg)
                 for arg in args if not (isinstance(arg, str) and arg in cls.syntax_strings)]
 
-    # This is for specific tricks where we want to modify the structure of the ast (move a child node up for instance)
-    # We just flatten here.
-    ast_args = [a for arg_list in ast_args for a in arg_list]
-
-    nodes = parse_ast_args(cls, ast_args)
-    if cls == tree.Wrap:
-        return nodes[0]
-
-    return nodes
+    return parse_ast_args(cls, ast_args)
 
 
 def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
@@ -142,7 +134,7 @@ def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
             # We want to move the assignment node one up so it is **sibling** to this declaration node.
             # Then the declaration should be made with the value of the assigned variable.
             ast_args[2] = tree.Identifier(expr.identifier.name)
-            return [expr, *parse_ast_args(cls, ast_args)]
+            return [expr, parse_ast_args(cls, ast_args)]
 
     if cls == tree.Function:
         # Sometimes we don't have function arguments. I don't know how to handle it but here, rearranging args order.
@@ -159,20 +151,20 @@ def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
 
         if len(left_hand_side) > 1:
             # We need to parse something like 1 + 2 + 3 + 4
-            # When making the recursive call we need to use [0] to avoid creatng an additional list.
-            left_hand_side = parse_ast_args(cls, left_hand_side)[0]
+            left_hand_side = parse_ast_args(cls, left_hand_side)
         else:
-            # The left hand side is a single expression, it was already parsed into an ast.
+            # The right hand side is a single expression, it was already parsed into an ast.
             left_hand_side = left_hand_side[0]
 
-        return [tree.BinOp(left_hand_side, op, right_hand_side)]
+        return tree.BinOp(left_hand_side, op, right_hand_side)
 
     # We 'unnest' the structure - these classes are abstract so we are rly interested in what they contain.
     if cls == tree.Expr:
         assert len(ast_args) == 1
-        return ast_args
+        return ast_args[0]
     if cls == tree.Statement:
-        return ast_args
+        assert len(ast_args) == 1
+        return ast_args[0]
 
     # Hack. Esp since some 'class_name' refer to functions.
-    return [cls(*ast_args)]
+    return cls(*ast_args)

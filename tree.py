@@ -268,15 +268,18 @@ Expr2 = Expr
 
 
 # TODO: I think if I used the REPEAT thing in the grammar I would not have to do this. Especially I can have consistent class names!
-def reduce_to_list(item, *items):
+def reduce_to_list(item, items=None):
     """Typically we will have three statements (lines of code basically) in a row, giving us:
     Block line1 [Block line2 [Block line3]]
 
     And we want a list of statements at the end of the day
     """
-    if not items:
+    if items is None:
         items = []
-    return [item] + [i for i in items]
+    if isinstance(item, list):
+        return item + items
+    else:
+        return [item] + items
 
 
 reduce_to_list.syntax_strings = {' ', '\n'}  # We really want \s here (any whitespace char).
