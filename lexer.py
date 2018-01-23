@@ -26,6 +26,72 @@ def read_grammar(description):
 class ParseError(Exception):
     pass
 
+def parse_sequence(grammar, seq: List, text: str, repeat=False) -> Tuple[List, str]:
+    """We use this to parse things like 'var Identifier = Expr' which is effectively a sequence.
+    Note the sequence could have a single element, it's not a big deal and makes it more generic.
+    """
+    result = []
+    remainder = text
+
+    if repeat:
+        # Parse the sequence as many times as we can
+        while True:
+            try:
+                tree_list, remainder = parse_sequence(grammar, seq, remainder, repeat=False)
+            except ParseError:
+                break
+
+            result.extend(tree_list)
+        return result, remainder
+
+
+    i = 0
+    REPEAT_START = 'REPEAT_START'
+    REPEAT_END = 'REPEAT_END'
+    while i < len(seq):
+        atom = seq[i]
+        if atom == REPEAT_START:
+            # Get just the sequence to repeat
+            repeat_sequence = seq[(i + 1): seq.index(REPEAT_END, i)]
+            repeat_result, remainder = parse_sequence(grammar, repeat_sequence, remainder, repeat=True)
+            result.extend(repeat_result)
+            i = seq.index(REPEAT_END, i) + 1
+        else:
+            tree, remainder = parse_atom(grammar, atom, remainder)
+            result.append(tree)
+            i += 1
+
+    return result, remainder
+
+def parse_atom(grammar, atom, text):
+    """
+    :param: atom: smt like Assignment. Or a terminal expression, like a regex '[0-9]'
+    """
+    whitespace = '\s*'
+    # We hit a terminal expression - no need to recurse further
+    if atom not in grammar:
+        # watch out for the sneaky whitespaces ruining the parsing.
+        match = re.match(f'{whitespace}({atom})', text)
+        if match is not None:
+            # match.group(0) would be with the whitespaces
+            # print(atom, '--', text, '--', match.group(1))
+            return match.group(1), text[match.end():]
+        else:
+            raise ParseError()
+
+    else:
+        # onto non-terminal atoms
+        for alternative in grammar[atom]:
+            try:
+                tree, remainder = parse_sequence(grammar, alternative, text)
+            except ParseError:
+                continue
+
+            # print(atom, '--', text, '--', tree)
+            return [atom] + tree, remainder
+        # no more alternatives, fail
+        raise ParseError(f'No more alternatives, cannot parse {text}')
+
 
 def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
     """One thing to remember is that we deal with context-free grammars.
@@ -39,73 +105,7 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
     if not text:
         return None
 
-    def parse_sequence(seq: List, text: str, repeat=False) -> Tuple[List, str]:
-        """We use this to parse things like 'var Identifier = Expr' which is effectively a sequence.
-        Note the sequence could have a single element, it's not a big deal and makes it more generic.
-        """
-        result = []
-        remainder = text
-
-        if repeat:
-            # Parse the sequence as many times as we can
-            while True:
-                try:
-                    tree_list, remainder = parse_sequence(seq, remainder, repeat=False)
-                except ParseError:
-                    break
-
-                result.extend(tree_list)
-            return result, remainder
-
-
-        i = 0
-        REPEAT_START = 'REPEAT_START'
-        REPEAT_END = 'REPEAT_END'
-        while i < len(seq):
-            atom = seq[i]
-            if atom == REPEAT_START:
-                # Get just the sequence to repeat
-                repeat_sequence = seq[(i + 1): seq.index(REPEAT_END, i)]
-                repeat_result, remainder = parse_sequence(repeat_sequence, remainder, repeat=True)
-                result.extend(repeat_result)
-                i = seq.index(REPEAT_END, i) + 1
-            else:
-                tree, remainder = parse_atom(atom, remainder)
-                result.append(tree)
-                i += 1
-
-        return result, remainder
-
-    def parse_atom(atom, text):
-        """
-        :param: atom: smt like Assignment. Or a terminal expression, like a regex '[0-9]'
-        """
-        whitespace = '\s*'
-        # We hit a terminal expression - no need to recurse further
-        if atom not in grammar:
-            # watch out for the sneaky whitespaces ruining the parsing.
-            match = re.match(f'{whitespace}({atom})', text)
-            if match is not None:
-                # match.group(0) would be with the whitespaces
-                # print(atom, '--', text, '--', match.group(1))
-                return match.group(1), text[match.end():]
-            else:
-                raise ParseError()
-
-        else:
-            # onto non-terminal atoms
-            for alternative in grammar[atom]:
-                try:
-                    tree, remainder = parse_sequence(alternative, text)
-                except ParseError:
-                    continue
-
-                # print(atom, '--', text, '--', tree)
-                return [atom] + tree, remainder
-            # no more alternatives, fail
-            raise ParseError(f'No more alternatives, cannot parse {text}')
-
-    return parse_atom('Wrap', text)
+    return parse_atom(grammar, 'Wrap', text)
 
 
 def to_ast(token_list) -> tree.AstNode:

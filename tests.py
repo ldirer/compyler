@@ -257,11 +257,11 @@ if (1) return 3; else return 2;
     ast_to_str(ast)
 
 
-# def test_parse_for():
-#     src = """int main() {
-#     int i;
-#     for (i = 0; i < 5; i = i + 1) {
-#         1;
-#     }}"""
-#     ast = get_ast(src)
-#     ast_to_str(ast)
+def test_parse_for():
+    src = """int main() {
+    int i;
+    for (i = 0; i < 5; i = i + 1) {
+        1;
+    }}"""
+    ast = get_ast(src)
+    ast_to_str(ast)
