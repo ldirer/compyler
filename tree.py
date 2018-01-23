@@ -7,8 +7,9 @@ from typing import Union, List
 class AstNode:
     # A set of strings that we can discard after parsing.
     # Ex: in 'var a = 2', we don't need 'var' when building our Assignment node.
-    # TODO: obv. that's very fragile design. Mb we could have a global variable for that (not sure it's class specific).
-    syntax_strings = {}
+    SYNTAX_STRINGS = {'=', ';', ',', '', '"', "'", '(', ')', '()', '{', '}', '{}', 'return', 'if', 'else',
+                      # I'm not sure anymore why I need whitespace characters here.
+                      ' ', '\n'}
 
     @property
     def children(self):
@@ -46,7 +47,11 @@ class Identifier(AstNode):
         return f'{self.__class__.__name__}(name={self.name})'
 
 
-class Expr(AstNode):
+class Statement(AstNode):
+    pass
+
+
+class Expr(Statement):
     # TODO: the *value* of this class is debatable as well (like Statement)
     # I think it should be an abstract class and Integer, String, etc should inherit from it.
 
@@ -64,7 +69,6 @@ class Integer(Expr):
 
 
 class String(Expr):
-    syntax_strings = {'"'}
 
     def __init__(self, value: str):
         self.value = value
@@ -73,13 +77,7 @@ class String(Expr):
         return f'{self.__class__.__name__}({self.value})'
 
 
-class Statement(AstNode):
-
-    syntax_strings = {';'}
-
-
 class Char(Expr):
-    syntax_strings = {"'"}
 
     def __init__(self, value: str):
         self.value = value
@@ -89,7 +87,6 @@ class Char(Expr):
 
 
 class Assignment(Expr):
-    syntax_strings = {'=', ';', ''}
 
     def __init__(self, identifier: Identifier, value: Expr):
         self.identifier = identifier
@@ -104,7 +101,6 @@ class Assignment(Expr):
 
 
 class Declaration(Statement):
-    syntax_strings = {'=', ';', ''}
 
     def __init__(self, type: str, identifier: Identifier, value: Union[Expr, None] = None):
         self.type = type
@@ -150,8 +146,6 @@ class BinOp(AstNode):
 
     OPERATORS = [MULTIPLY, ADD, SUBSTRACT, DIVIDE, MODULO, GT, LT, GTE, LTE, EQ, NEQ]
 
-    syntax_strings = {'(', ')'}
-
     def __init__(self, left, operation, right):
         self.operation = operation
         self.left = left
@@ -165,23 +159,22 @@ class BinOp(AstNode):
         return f'{self.__class__.__name__}({self.operation})'
 
 
-
 class Function(Statement):
-    syntax_strings = {'()', '(', ')', '{', '}'}
 
     def __init__(self, return_type: str, name: Identifier, body: List[Statement],
-                 args: Union['FunctionArgs', None]=None):
+                 args: Union['FunctionArgs', None] = None):
         self.return_type = return_type
         self.name = name
         self.args = args if args is not None else FunctionArgs()
-        self.body = FunctionBody(body)
+        self.body = BodyBlock(body)
 
     @property
     def children(self):
         return [self.name, self.body, self.args]
 
 
-class FunctionBody(AstNode):
+class BodyBlock(AstNode):
+    # Name is lame, to avoid conflict with Block defined in the grammar...
 
     def __init__(self, statements: List[Statement]):
         self.statements = statements
@@ -192,19 +185,17 @@ class FunctionBody(AstNode):
 
 
 class FunctionCall(Expr):
-    syntax_strings = {'(', ')', '()'}
 
-    def __init__(self, function_id: Identifier, args: Union['FunctionCallArgs', None]=None):
+    def __init__(self, function_id: Identifier, args: Union['FunctionCallArgs', None] = None):
         self.function_id = function_id
-        self.args = args if args is not None else []
+        self.args = args
 
     @property
     def children(self):
-        return [self.function_id] + self.args
+        return [self.function_id, self.args]
 
 
 class Return(Statement):
-    syntax_strings = {'return', ';'}
 
     def __init__(self, value: Expr):
         self.value = value
@@ -217,8 +208,19 @@ class Return(Statement):
         return [self.value]
 
 
+class If(Statement):
+
+    def __init__(self, condition, if_block, else_block=None):
+        self.condition = condition
+        self.if_block = if_block
+        self.else_block = else_block
+
+    @property
+    def children(self):
+        return [self.condition, self.if_block] + ([self.else_block] if self.else_block is not None else [])
+
+
 class FunctionArgs(AstNode):
-    syntax_strings = {','}
 
     def __init__(self, *args: Declaration):
         self.args = args
@@ -229,7 +231,6 @@ class FunctionArgs(AstNode):
 
 
 class FunctionCallArgs(AstNode):
-    syntax_strings = {','}
 
     def __init__(self, *args):
         self.args = args
@@ -239,32 +240,28 @@ class FunctionCallArgs(AstNode):
         return self.args
 
 
-def Operator(op_string):
-    # Noop because we dont want to create a node for this. It was just to make the grammar clearer.
-    return op_string
-
-
-Operator.syntax_strings = {}
-
-
-def Type(type_string):
-    # Noop because we dont want to create a node for this. It was just to make the grammar clearer.
-    return type_string
-
-
-Type.syntax_strings = {}
-
-
 def Noop(ast_or_terminal_token):
     return ast_or_terminal_token
 
 
-Noop.syntax_strings = {'(', ')', ';', ''}
-
+# Noop because we dont want to create a node for these. They were just here to make the grammar clearer.
 SimpleExpr = Noop
 Operator = Noop
 UnaryOperator = Noop
+Type = Noop
+
+# This was created during the Great Battle of Left Recursion and Left Associativity. Not useful now.
 Expr2 = Expr
+
+
+def ControlFlowBody(statement_or_block=None):
+    if statement_or_block is None:
+        # This is an empty if block with braces.
+        return BodyBlock([])
+    if isinstance(statement_or_block, Statement):
+        return BodyBlock([statement_or_block])
+    else:
+        return BodyBlock(statement_or_block)
 
 
 def reduce_to_list(item, items=None):
@@ -281,7 +278,6 @@ def reduce_to_list(item, items=None):
         return [item] + items
 
 
-reduce_to_list.syntax_strings = {' ', '\n'}  # We really want \s here (any whitespace char).
 Block = reduce_to_list
 
 
@@ -324,6 +320,12 @@ def function_to_llvm(node: Function, module: ir.Module):
     block = f.append_basic_block(name='entry')
     builder = ir.IRBuilder(block)
     to_llvm(node.body, builder, module)
+
+    # This is to fix empty blocks: they are not accepted by LLVM IR. Every block is supposed to have a terminator.
+    # See http://llvm.org/docs/LangRef.html#terminators
+    # For instance `if` creates an extra block and it crashes if there's nothing in it.
+    if not builder.block.instructions:
+        builder.unreachable()
     return module
 
 
@@ -343,13 +345,14 @@ def char_to_llvm(node, builder, module):
 
 
 type_to_llvm_type = {'int': ir.IntType(64),
-                     'char': ir.IntType(64)   # Not accurate/optimal. Whatever.
+                     'char': ir.IntType(64)  # Not accurate/optimal. Whatever.
                      }
+
 
 def to_llvm(node: AstNode, builder: Union[ir.IRBuilder, None] = None, module: Union[ir.Module, None] = None):
     if isinstance(node, Function):
         return function_to_llvm(node, module)
-    if isinstance(node, FunctionBody):
+    if isinstance(node, BodyBlock):
         for statement in node.statements:
             to_llvm(statement, builder, module)
         # Note we dont return anything here! it does not matter, the Function case will return for us.
@@ -382,7 +385,6 @@ def to_llvm(node: AstNode, builder: Union[ir.IRBuilder, None] = None, module: Un
     if isinstance(node, Assignment):
         return builder.store(to_llvm(node.value, builder, module),
                              llvm_converter_state.identifier_to_var[node.identifier.name])
-
     if isinstance(node, Integer):
         return integer_to_llvm(node)
     if isinstance(node, Return):
@@ -431,7 +433,7 @@ def to_llvm(node: AstNode, builder: Union[ir.IRBuilder, None] = None, module: Un
         # I got the triple from compiling a C program on my machine.
         module.triple = "x86_64-unknown-linux-gnu"
         for statement in node.children:
-            to_llvm(statement, module=module)
+            to_llvm(statement, builder, module=module)
         return module
     if isinstance(node, String):
         return string_to_llvm(node)
@@ -445,12 +447,33 @@ def to_llvm(node: AstNode, builder: Union[ir.IRBuilder, None] = None, module: Un
             return builder.function.args[llvm_converter_state.arg_identifiers_to_index[node.name]]
 
         return builder.load(var)
+    if isinstance(node, If):
+        # We cant just throw the condition to llvm: it expects a type of i1 (boolean, 1/0).
+        # If node.condition is an Integer, we compare to 0 for instance.
+        predicate = condition_to_llvm(node.condition, builder, module)
+        if node.else_block is None:
+            with builder.if_then(predicate) as then:
+                to_llvm(node.if_block, builder, module)
+        else:
+            with builder.if_else(predicate) as (then, otherwise):
+                with then:
+                    to_llvm(node.if_block, builder, module)
+                with otherwise:
+                    to_llvm(node.else_block, builder, module)
 
-        # # TODO: I just hardocded that to see the rest of the output.
-        # return ir.Constant(ir.IntType(64), 172)
+
+def condition_to_llvm(node, builder, module):
+    # Might make sense to do it in the AST instead? It's hard to know the type in the AST though.
+    # Works out nicely in the end!
+    condition = to_llvm(node, builder, module)
+
+    if isinstance(condition.type, ir.IntType):
+        return builder.icmp_signed('!=', to_llvm(node, builder, module), ir.Constant(ir.IntType(64), 0))
+    else:
+        raise NotImplementedError('Lazy developer does not implement what does not crash')
 
 
 def integer_to_llvm(node: Integer):
-    # TODO: mb some kind of optimization on the number of bits. 64 is the safe I-dont-wanna-hear-about-it way.
+    # mb some kind of optimization on the number of bits. 64 is the safe I-dont-wanna-hear-about-it way.
     i_type = ir.IntType(64)
     return ir.Constant(i_type, node.value)

@@ -112,13 +112,10 @@ def to_ast(token_list) -> tree.AstNode:
 
     class_name, *args = token_list
     cls = getattr(tree, class_name)
-    # I dont know what im doing. HACK
-    setattr(tree, 'Expr', tree.Expr)
-    setattr(tree, 'Term', tree.Expr)
 
     # Some elements are lists: these still need parsing.
     ast_args = [arg if not isinstance(arg, list) else to_ast(arg)
-                for arg in args if not (isinstance(arg, str) and arg in cls.syntax_strings)]
+                for arg in args if not (isinstance(arg, str) and arg in tree.AstNode.SYNTAX_STRINGS)]
 
     return parse_ast_args(cls, ast_args)
 

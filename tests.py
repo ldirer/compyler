@@ -243,3 +243,25 @@ entry:
   ret i64 3
 }"""
     assert expected_ir_code.strip() in str(ir_code)
+
+
+def test_parse_if():
+    src = """int main() {
+if (1) return 3; else return 2;
+}"""
+    ast = get_ast(src)
+    ast_to_str(ast)
+
+    src = """int main() { if (1) return 2;}"""
+    ast = get_ast(src)
+    ast_to_str(ast)
+
+
+# def test_parse_for():
+#     src = """int main() {
+#     int i;
+#     for (i = 0; i < 5; i = i + 1) {
+#         1;
+#     }}"""
+#     ast = get_ast(src)
+#     ast_to_str(ast)

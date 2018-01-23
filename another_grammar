@@ -9,7 +9,7 @@ Function => Type Identifier \( FunctionArgs \) \{ Block \} | Type Identifier \(\
 FunctionArgs => Declaration REPEAT_START , Declaration REPEAT_END
 
 # We cant have  `Statement Statement` as an alternative, that would make it a (left!!) recursive rule...
-Statement => Function | Return | Declaration | Expr ; | Expr
+Statement => If | Function | Return | Declaration | Expr ; | Expr
 # Im starting to see why we would need Expr on top of Statement.
 
 
@@ -45,3 +45,18 @@ UnaryOperator => ! | \~ | - | \+
 
 # Maybe add more types later on
 Type => int | char
+
+
+
+##### Control Flow
+If => if \( Expr \) ControlFlowBody else ControlFlowBody | if \( Expr \) ControlFlowBody
+
+# The last bit could probably be anything (not just an assignment), so we're choosing to 'play safe'.
+ForLoop => for \( ForInit ; Expr ; Assignment \) ControlFlowBody
+ForInit => Declaration | Assignment
+
+# We allow if without braces when there's a single statement. We also allow nothing in braces.
+ControlFlowBody => Statement | \{ Block \}
+
+
+
