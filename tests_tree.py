@@ -1,15 +1,15 @@
 
 
-from tree import AstNode, Wrap, Function, Statement, Return, Integer, Identifier
+from tree import Wrap, Function, Return, Integer, Identifier
 
 
 def test_walk():
     """Test that walking a tree goes through all the nodes."""
 
-    ret = Return(Statement(Integer(42)))
-    function_body = Statement(ret)
+    ret = Return(Integer(42))
+    function_body = [ret]
     func = Function('int', Identifier('main'), function_body)
-    ast = Wrap(func)
+    ast = Wrap([func])
     nodes = list(ast.walk())
 
     # We just test the number of nodes.

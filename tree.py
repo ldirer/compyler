@@ -12,7 +12,6 @@ class AstNode:
 
     @property
     def children(self):
-        # TODO: should be a way to get children. Mb write a first design, see what I need and come back
         return []
 
     def __str__(self):
@@ -253,21 +252,6 @@ class ForLoop(Statement):
         return [self.for_init, self.for_condition, self.for_increment, self.for_body]
 
 
-def Noop(ast_or_terminal_token):
-    return ast_or_terminal_token
-
-
-# Noop because we dont want to create a node for these. They were just here to make the grammar clearer.
-SimpleExpr = Noop
-Operator = Noop
-UnaryOperator = Noop
-Type = Noop
-ForInit = Noop
-
-# This was created during the Great Battle of Left Recursion and Left Associativity. Not useful now.
-Expr2 = Expr
-
-
 def ControlFlowBody(statement_or_block=None):
     if statement_or_block is None:
         # This is an empty if block with braces.
@@ -292,7 +276,21 @@ def reduce_to_list(item, items=None):
         return [item] + items
 
 
+def Noop(ast_or_terminal_token):
+    return ast_or_terminal_token
+
+
+# Noop because we dont want to create a node for these. They were just here to make the grammar clearer.
+SimpleExpr = Noop
+Operator = Noop
+UnaryOperator = Noop
+Type = Noop
+ForInit = Noop
+
 Block = reduce_to_list
+
+# This was created during the Great Battle of Left Recursion and Left Associativity.
+Expr2 = Expr
 
 
 def ast_to_str(ast: AstNode, depth=0):

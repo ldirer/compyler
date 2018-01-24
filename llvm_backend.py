@@ -16,6 +16,11 @@ class CustomBuilder(ir.IRBuilder):
 
     @contextlib.contextmanager
     def _branch_helper_goto_start(self, bbenter, bbexit, add_terminal=True):
+        """
+        :param add_terminal: If False do not add a terminal to the bbenter block, even if the user did not provide one.
+        I'm using it to be able to set a custom terminal after this context manager has been used.
+        :return:
+        """
         self.position_at_start(bbenter)
         yield bbexit
         if add_terminal:
@@ -59,10 +64,7 @@ class CustomBuilder(ir.IRBuilder):
         self.position_at_end(bbbody)
         self.branch(bbincr)
 
-
-        # I think the value yielded by _branch_helper is mostly irrelevant.
-        # (we won't use it and yielding it does affect builder state)
-        #TODO: might need to position at *start* of bbbody since we added (terminal!) stuff at the end
+        # I think the value yielded by _branch_helper is irrelevant: we won't use it and yielding it does affect state.
         for_cond = self._branch_helper_goto_start(bbcond, bbend, add_terminal=False)
         for_incr = self._branch_helper_goto_start(bbincr, bbend)
         for_body = self._branch_helper_goto_start(bbbody, bbend)
@@ -70,16 +72,15 @@ class CustomBuilder(ir.IRBuilder):
 
         # HACK WARNING.
         # I tried using a NamedValue but llvmlite does a good job of deduplicating names so if we use a name twice it
-        # will create 2 different names (myvar and myvar.1).
+        # will create 2 different names .
 
         # condition: jump out of loop when not met.
         self.position_at_end(bbcond)
         condition_value = NamedValue(bbcond, ir.IntType(1), condition_varname)
-        # the name will be deduplicated: we don't want that! So we override it.
+        # the name will be deduplicated: we don't want that (if var already exists we will get var.1)! We override it.
         condition_value._name = condition_varname
         self.cbranch(condition_value, bbbody, bbend)
 
-        # Hack time is over.
         self.position_at_end(bbend)
 
 

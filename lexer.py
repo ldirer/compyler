@@ -1,8 +1,11 @@
-# raw strings mean we don't have to escape backslashes.
 import re
 from typing import List, Dict, Tuple, Union
 
 import tree as tree
+
+# Variables tied to the grammar definition.
+REPEAT_START = 'REPEAT_START'
+REPEAT_END = 'REPEAT_END'
 
 
 def split_trim(text, sep=None, max_split=-1):
@@ -44,10 +47,7 @@ def parse_sequence(grammar, seq: List, text: str, repeat=False) -> Tuple[List, s
             result.extend(tree_list)
         return result, remainder
 
-
     i = 0
-    REPEAT_START = 'REPEAT_START'
-    REPEAT_END = 'REPEAT_END'
     while i < len(seq):
         atom = seq[i]
         if atom == REPEAT_START:
@@ -84,7 +84,6 @@ def parse_atom(grammar, atom, text):
             return match.group(1), text[match.end():]
         else:
             raise ParseError()
-
     else:
         # onto non-terminal atoms
         for alternative in grammar[atom]:
@@ -105,13 +104,10 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
 
 
     Keep in mind that the tree has *a single root node*. It's important to understand the code.
-
     """
 
     if not text:
         return None
-
-    # Strip out comments.
 
     return parse_atom(grammar, 'Wrap', text)
 
@@ -128,7 +124,11 @@ def to_ast(token_list) -> tree.AstNode:
     return parse_ast_args(cls, ast_args)
 
 
-def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
+def parse_ast_args(cls, ast_args: List) -> Union[tree.AstNode, List[tree.AstNode]]:
+    """Recursive utility function to convert to ast.
+
+    `cls`: Class of the root node.
+    """
 
     if cls == tree.Declaration and len(ast_args) >= 3:
         # We deal with chained declarations here (`int a = b = 1;`). We want two separate variable declarations.

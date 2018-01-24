@@ -1,9 +1,13 @@
+"""
+I wrote these tests as I was programming to help avoid regressions.
+
+Most of them are 'weak tests' that don't check correctness (just some level of non-brokenness).
+"""
 from pprint import pprint
 
-import pytest
 from llvmlite import ir
 
-from lexer import read_grammar, parse, to_ast, ParseError
+from lexer import read_grammar, parse, to_ast
 
 from tree import ast_to_str, Function, BinOp, UnOp
 from llvm_backend import function_to_llvm, to_llvm
@@ -41,8 +45,8 @@ function_call = """fibo()"""
 # The type is wrong but it should still parse.
 assign_string = 'int greetings = "hello";'
 
-# TODO: read as raw string vs binary?
-with open('another_grammar', 'r') as f:
+# When writing grammar as a string in code, using raw strings mean we don't have to escape backslashes.
+with open('C_grammar', 'r') as f:
     g = read_grammar(f.read())
 pprint(g)
 
@@ -70,6 +74,7 @@ def test_parser_binop():
     token_tree, remainder = parse(g, binop)
     assert remainder == ''
 
+
 def test_parser_binop_associativity():
     weak_parse_test("60 + 1 - 4")
     weak_parse_test("1 + 2 + 3 + 4 + 5")
@@ -87,7 +92,6 @@ def test_parser_unary():
     weak_parse_test('~1')
     weak_parse_test('!1')
     weak_parse_test('~-1')
-    #TODO: add unary precedence, check ast for ~2+3 vs ~(2+3)
 
 
 def test_ast_unary_precedence():
@@ -101,11 +105,9 @@ def test_ast_unary_precedence():
     assert [n.__class__ for n in nodes if isinstance(n, (UnOp, BinOp))] == [UnOp, BinOp]
 
 
-
 def weak_parse_test(source):
     token_tree, remainder = parse(g, source)
     assert remainder == ''
-
 
 
 def test_ast_binop_precedence():
@@ -154,6 +156,7 @@ def test_parse_and_ast_assignment():
     # Just check it does not crash for now.
     my_ast = to_ast(token_tree)
 
+
 def test_parse_return():
     t_tree, rem = parse(g, 'return 42;')
     assert rem == ''
@@ -169,8 +172,8 @@ def test_parse_declaration():
     weak_parse_test('int a = 1;')
     weak_parse_test('int a = b = 1;')
 
-def test_parse_function_chained_declaration():
 
+def test_parse_function_chained_declaration():
     # Had some trouble with this one
     src = """
     int main() {
@@ -191,8 +194,10 @@ def test_parse_function_with_args():
 def test_parse_function_call():
     get_ast(function_call)
 
+
 def test_parse_function_call_with_args():
     get_ast("foo(3, 2)")
+
 
 def test_function_node_to_llvm():
     token_tree, remainder = parse(g, simple_function)
@@ -228,8 +233,6 @@ entry:
   ret i64 42
 }"""
     assert expected_ir_code.strip() in str(ir_code)
-
-
 
 
 def test_integration_temp():

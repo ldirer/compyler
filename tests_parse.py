@@ -1,6 +1,6 @@
 from lexer import parse_atom, read_grammar
 
-with open('another_grammar', 'r') as f:
+with open('C_grammar', 'r') as f:
     g = read_grammar(f.read())
 
 def test_parse_block():

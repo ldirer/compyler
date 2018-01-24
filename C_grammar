@@ -11,8 +11,6 @@ FunctionArgs => Declaration REPEAT_START , Declaration REPEAT_END
 
 # We cant have  `Statement Statement` as an alternative, that would make it a (left!!) recursive rule...
 Statement => If | ForLoop | Function | Return | Declaration ; | Declaration | Expr ; | Expr | ;
-# Im starting to see why we would need Expr on top of Statement.
-
 
 # Cant put any Expr here, we cant do '-[a binop]'. Unless we group I guess.
 UnOp => UnaryOperator SimpleExpr
@@ -30,13 +28,12 @@ Identifier => [a-zA-Z_][a-zA-Z0-9_]*
 Integer => [1-9][0-9]* | 0
 
 
-# FunctionCall needs to be before Identifier. BinOp needs to be before \( Expr \), etc.
 Expr => Expr2 REPEAT_START (\+|-) Expr REPEAT_END
 # Expr2 is here strictly for precedence.
 Expr2 => SimpleExpr REPEAT_START Operator SimpleExpr REPEAT_END
 # SimpleExpr is everything we can put after a Unary Operator.
+# FunctionCall needs to be before Identifier.
 SimpleExpr =>  Assignment | UnOp | \( Expr \) | FunctionCall | Identifier | Integer | String | Char
-
 
 
 # Non-capturing groups FTW
@@ -46,7 +43,6 @@ UnaryOperator => ! | \~ | - | \+
 
 # Maybe add more types later on
 Type => int | char
-
 
 
 ##### Control Flow
