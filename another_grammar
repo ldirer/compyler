@@ -10,7 +10,7 @@ Function => Type Identifier \( FunctionArgs \) \{ Block \} | Type Identifier \(\
 FunctionArgs => Declaration REPEAT_START , Declaration REPEAT_END
 
 # We cant have  `Statement Statement` as an alternative, that would make it a (left!!) recursive rule...
-Statement => If | ForLoop | Function | Return | Declaration ; | Declaration | Expr ; | Expr
+Statement => If | ForLoop | Function | Return | Declaration ; | Declaration | Expr ; | Expr | ;
 # Im starting to see why we would need Expr on top of Statement.
 
 

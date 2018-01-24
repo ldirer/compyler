@@ -168,8 +168,7 @@ def parse_ast_args(cls, ast_args) -> Union[tree.AstNode, List[tree.AstNode]]:
         assert len(ast_args) == 1
         return ast_args[0]
     if cls == tree.Statement:
-        assert len(ast_args) == 1
-        return ast_args[0]
+        return ast_args[0] if ast_args else None
 
     # Hack. Esp since some 'class_name' refer to functions.
     return cls(*ast_args)
