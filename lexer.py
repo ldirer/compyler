@@ -1,7 +1,6 @@
 # raw strings mean we don't have to escape backslashes.
 import re
 from typing import List, Dict, Tuple, Union
-import pytest
 
 import tree as tree
 
@@ -25,6 +24,7 @@ def read_grammar(description):
 
 class ParseError(Exception):
     pass
+
 
 def parse_sequence(grammar, seq: List, text: str, repeat=False) -> Tuple[List, str]:
     """We use this to parse things like 'var Identifier = Expr' which is effectively a sequence.
@@ -63,11 +63,17 @@ def parse_sequence(grammar, seq: List, text: str, repeat=False) -> Tuple[List, s
 
     return result, remainder
 
+
 def parse_atom(grammar, atom, text):
     """
     :param: atom: smt like Assignment. Or a terminal expression, like a regex '[0-9]'
     """
     whitespace = '\s*'
+    # Allow line (and inline!) comments in the source code
+    if re.match(f'{whitespace}{grammar["Comment"][0][0]}', text) is not None:
+        # We strip the text before looking up the line break in case text currently starts with a line break.
+        return parse_atom(grammar, atom, text.strip()[text.strip().index('\n'):])
+
     # We hit a terminal expression - no need to recurse further
     if atom not in grammar:
         # watch out for the sneaky whitespaces ruining the parsing.
@@ -104,6 +110,8 @@ def parse(grammar: Dict[str, Tuple[List[str]]], text: str):
 
     if not text:
         return None
+
+    # Strip out comments.
 
     return parse_atom(grammar, 'Wrap', text)
 

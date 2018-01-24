@@ -1,5 +1,5 @@
 int main() {
-
+    // declaration of variable before the loop
     int i;
     int j = 0;
 

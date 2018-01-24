@@ -5,7 +5,8 @@ from llvmlite import ir
 
 from lexer import read_grammar, parse, to_ast, ParseError
 
-from tree import ast_to_str, Function, function_to_llvm, to_llvm, BinOp, UnOp
+from tree import ast_to_str, Function, BinOp, UnOp
+from llvm_backend import function_to_llvm, to_llvm
 
 simple_assign = 'int valid_identifier = 42;'
 invalid_identifier = 'int 911notvalid = 42;'
@@ -51,7 +52,7 @@ def test_parser_assignment():
     assert remainder == ''
     assert token_tree == ['Wrap', ['Block', ['Statement', ['Declaration', ['Type', 'int'], ['Identifier', 'valid_identifier'],
                                                  '=',
-                                                 ['Expr', ['Expr2', ['SimpleExpr', ['Integer', '42']]]], ';']]]]
+                                                 ['Expr', ['Expr2', ['SimpleExpr', ['Integer', '42']]]]], ';']]]
 
     # Note we dont necessarily raise an exception when we cant parse. Just when we cant parse *anything*.
     token_tree, remainder = parse(g, invalid_identifier)
@@ -265,3 +266,22 @@ def test_parse_for():
     }}"""
     ast = get_ast(src)
     ast_to_str(ast)
+
+
+def test_parse_for_with_without_braces():
+    src = """int main() {
+    int i;
+    for (i = 0; i < 5; i = i + 1) {
+        1;
+    }}"""
+    ast = get_ast(src)
+    ast_to_str(ast)
+
+    src_2 = """int main() {
+    int i;
+    for (i = 0; i < 5; i = i + 1) 
+        1;
+    }"""
+
+    ast_2 = get_ast(src_2)
+    assert ast_to_str(ast_2) == ast_to_str(ast)
